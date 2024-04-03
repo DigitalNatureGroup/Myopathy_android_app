@@ -1,0 +1,349 @@
+package com.digitalnature.myopathy_breath_v1
+
+import android.annotation.SuppressLint
+import android.bluetooth.*
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.IBinder
+import android.os.Looper
+import android.provider.Settings
+import android.util.Log
+import android.widget.Button
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.DEBUG_PROPERTY_VALUE_ON
+import no.nordicsemi.android.ble.BleManager
+import java.time.LocalDateTime
+import java.util.Timer
+import java.util.TimerTask
+import java.util.UUID
+
+
+private const val STATE_DISCONNECTED = 0
+private const val STATE_CONNECTING = 1
+private const val STATE_CONNECTED = 2
+const val ACTION_GATT_CONNECTED = "com.example.bluetooth.le.ACTION_GATT_CONNECTED"
+const val ACTION_GATT_DISCONNECTED = "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED"
+const val ACTION_GATT_SERVICES_DISCOVERED =
+    "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED"
+const val ACTION_DATA_AVAILABLE = "com.example.bluetooth.le.ACTION_DATA_AVAILABLE"
+const val EXTRA_DATA = "com.example.bluetooth.le.EXTRA_DATA"
+//val UUID_HEART_RATE_SERIAL = UUID.fromString("49535343-6DAA-4D02-ABF6-19569ACA69FE")
+val UUID_CHAR = UUID.fromString("49535343-ACA3-481C-91EC-D85E28A60318")
+val UUID_SERVICE = UUID.fromString("49535343-FE7D-4AE5-8FE9-9FAFD205E455")
+val UUID_DESCR = UUID.fromString("0x2902")
+
+class MainActivity : AppCompatActivity() {
+
+
+
+    private lateinit var dataClient : DataClient
+    private lateinit var textView : TextView
+    private lateinit var errorView : TextView
+    private lateinit var sendButton : Button
+    private lateinit var node_id : String
+    private lateinit var handlerThread : HandlerThread
+    private var last_value_serial : Pair<ByteArray? , LocalDateTime> = Pair(null, LocalDateTime.now())
+    private var last_value_heartrate : Pair<Double , LocalDateTime> = Pair(0.0, LocalDateTime.now())
+    private var permit_fine_loc: Boolean = false
+    private var permit_blue_scan: Boolean = false
+
+    private var mScanning: Boolean = false
+
+    private val BLE_device_filter = ScanFilter.Builder().setDeviceName("HC-02").build()
+
+    private val timer_ui_refresh = Timer("UI_refresh_timer")
+    private val timer_BLE_get = Timer("BLE_timer")
+
+    private val textview_template = "last serial written: %s , %s \n last watch read: %s , %s "
+
+    private val bluetoothAdapter: BluetoothAdapter? by lazy(LazyThreadSafetyMode.NONE) {
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothManager.adapter
+    }
+
+    private val BluetoothAdapter.isDisabled: Boolean
+        get() = !isEnabled
+
+    private class GattServiceConn : ServiceConnection {
+        var binding: DeviceAPI? = null
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            binding = null
+        }
+
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            binding = service as? DeviceAPI
+        }
+    }
+
+    private val bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
+    private var scanning = false
+    private val BLE_stop_handler = Handler(Looper.getMainLooper())
+
+    private var HC02_device : BluetoothDevice? = null
+    private var bluetoothGatt: BluetoothGatt? = null
+    private var connectionState: Int = 0
+
+    // Stops scanning after 10 seconds.
+    private val SCAN_PERIOD: Long = 10000
+
+    @SuppressLint("MissingPermission")
+    private fun scanLeDevice() {
+        //macAddress = "00:0C:BF:0A:78:4C",
+        //name = "HC-02",
+        if (!scanning) { // Stops scanning after a pre-defined scan period.
+            BLE_stop_handler.postDelayed({
+                scanning = false
+                bluetoothLeScanner!!.stopScan(leScanCallback)
+            }, SCAN_PERIOD)
+            scanning = true
+            bluetoothLeScanner!!.startScan(
+                listOf(BLE_device_filter),
+                ScanSettings.Builder().build(),
+            leScanCallback)
+        } else {
+            scanning = false
+            bluetoothLeScanner!!.stopScan(leScanCallback)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun writeToHC02(){
+
+    }
+
+    // Device scan callback.
+    private val leScanCallback: ScanCallback = object : ScanCallback() {
+        @SuppressLint("MissingPermission")
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            super.onScanResult(callbackType, result)
+            errorView.setText( "Found {} - {} ".format(result.device.name , result.device.address) )
+            HC02_device = result.device
+            bluetoothGatt = HC02_device!!.connectGatt(this@MainActivity, false, object :
+                BluetoothGattCallback() {
+                override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
+                    super.onServicesDiscovered(gatt, status)
+                    Log.i("jz","Service Discovered {}".format(status) )
+                    if (gatt == null){
+                        Log.i("jz","null gatt" )
+                        return
+                    }
+                    val bluetoothGattService = gatt.getService(UUID_SERVICE)
+                    val characteristic = bluetoothGattService.getCharacteristic(UUID_CHAR)
+                    val descriptor = characteristic.getDescriptor(UUID_DESCR)
+                    Log.d("jz",descriptor.toString())
+                    if ( descriptor == null){
+                        gatt.disconnect()
+                        return
+                    }
+                    /*
+                    if (!gatt.setCharacteristicNotification(BluetoothGattCharacteristic(UUID_CHAR,
+                            ),true)){
+
+                    }*/
+
+                }
+
+                override fun onCharacteristicWrite(
+                    gatt: BluetoothGatt?,
+                    characteristic: BluetoothGattCharacteristic?,
+                    status: Int
+                ) {
+                    super.onCharacteristicWrite(gatt, characteristic, status)
+                    val bluetoothGattService = gatt.getService(UUID_SERVICE)
+                    val characteristic = bluetoothGattService.getCharacteristic(UUID_CHAR)
+                    val descriptor = characteristic.getDescriptor(UUID_DESCR)
+                }
+                }
+            )
+        }
+        override fun onScanFailed(callbackType: Int) {
+            Log.e("jz","Scan failed")
+        }
+    }
+
+    // Various callback methods defined by the BLE API.
+
+
+
+
+    @SuppressLint("VisibleForTests")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        Log.d("-","setContentView Done")
+
+        // Get permission
+        if (bluetoothAdapter?.isDisabled == true) {
+            Log.e("jz"," no adapter")
+        }
+        /****
+         * ask for permission - implement later
+        bluetoothAdapter?.takeIf { it.isDisabled }?.apply {
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            val startForResult =
+                registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult? ->
+                    if (result?.resultCode == Activity.RESULT_OK) {
+                        result.data?.let { data: Intent ->
+                            val value = data.getIntExtra(SubActivity.KEY_VALUE, 0)
+                            Toast.makeText(this, "$value", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            startForResult.launch(SubActivity.createIntent(this))
+        }*/
+
+
+        start_listen()
+
+        textView = findViewById(R.id.DataShow)
+        textView.setText(R.string.waiting)
+
+        errorView = findViewById(R.id.ErrorStatusShow)
+        errorView.setText(R.string.error_placeholder)
+
+
+        // init scan
+
+        // Update
+        timer_ui_refresh.scheduleAtFixedRate(
+            object : TimerTask(){
+                override fun run() {
+                    val text = String.format(
+                        textview_template,
+                        String(last_value_serial.first?: ByteArray(0) ),
+                        last_value_serial.second,
+                        last_value_heartrate.first,
+                        last_value_heartrate.second
+                    )
+                    textView.setText(text)
+                }
+            },
+            1000L,
+            500L
+        )
+
+    }
+
+
+
+    private fun showDialogToGetPermission() {
+        Log.d("jz_permit","fine location permission")
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Permisisons request")
+            .setMessage("We need the location permission for some reason. " +
+                    "You need to move on Settings to grant some permissions")
+
+        builder.setPositiveButton("OK") { dialogInterface, i ->
+            val intent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)   // 6
+        }
+        builder.setNegativeButton("Later") { dialogInterface, i ->
+            // ignore
+        }
+        val dialog = builder.create()
+        dialog.show()
+    }
+
+    private fun showDialogToGetBluetoothScanPermission() {
+        Log.d("jz_permit","BLE permission")
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Permisisons request")
+            .setMessage("We need the Bluetooth scan permission for some reason. " +
+                    "You need to move on Settings to grant some permissions")
+
+        builder.setPositiveButton("OK") { dialogInterface, i ->
+            val intent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)   // 6
+        }
+        builder.setNegativeButton("Later") { dialogInterface, i ->
+            // ignore
+        }
+        val dialog = builder.create()
+        dialog.show()
+    }
+
+    fun start_listen() {
+        handlerThread = object : HandlerThread("BackgroundThread") {
+            override fun onLooperPrepared() {
+                val handler = Handler(looper)
+                val runnable = object : Runnable {
+                    override fun run() {
+                        get_data_task()
+                        handler.postDelayed(this,50)
+                    }
+                }
+                handler.postDelayed(runnable,300)
+            }
+        }
+        handlerThread.start()
+        //FIXME
+
+    }
+
+    @SuppressLint("VisibleForTests")
+    fun get_data_task(){
+        this.dataClient = Wearable.getDataClient(this)
+        //val dataItemTask = dataClient.getDataItems(Uri.parse("wear://%s/health".format(node_id))) //wear://<node_id>/<path>
+        val dataItemTask = dataClient.getDataItems(Uri.parse("wear://*/health"))
+        dataItemTask.addOnSuccessListener { dataItems ->
+            for (dataItem in dataItems) {
+                Log.d("phone-got-data","$dataItem")
+                if (dataItem.uri.path == "/health") {
+                    val myData = DataMapItem.fromDataItem(dataItem).dataMap.getDouble("heartrate")
+                    // do something with myData
+                    this.last_value_heartrate = Pair(myData, LocalDateTime.now())
+                    //textView.setText(String.format("Current Heartrate : %.1f",myData))
+                }
+            }
+            dataItems.release()
+        }
+
+    }
+
+
+
+// It is important to keep in mind that every single one of the provided arguments of the function shown above, are optionals! Therefore, you can skip the ones that you don't need.
+
+
+
+    // Stops scanning after 10 seconds.
+
+
+
+
+
+    override fun onDestroy() {
+
+
+        handlerThread.quit()
+        super.onDestroy()
+        stopService(Intent(this, GattService::class.java))
+
+    }
+
+
+
+
+}

@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Myopathy_breath_v1</string>
+    <!--
+    This string is used for square devices and overridden by hello_world in
+    values-round/strings.xml for round devices.
+    -->
+    <string name="hello_world">Hello Square World!</string>
+    <!--
+
+    -->
+    <string name="measure_status">Status: %1$s</string>
+    <string name="last_measured">Last measured:</string>
+    <string name="heart_rate_not_available">Heart rate not available on this device</string>
+
+</resources>

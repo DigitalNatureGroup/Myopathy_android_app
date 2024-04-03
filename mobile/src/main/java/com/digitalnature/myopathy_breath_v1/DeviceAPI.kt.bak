@@ -1,0 +1,9 @@
+package com.digitalnature.myopathy_breath_v1
+
+
+interface DeviceAPI {
+    /**
+     * Change the value of the GATT characteristic that we're publishing
+     */
+    fun setMyCharacteristicValue(value: String)
+}

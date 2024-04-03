@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Myopathy_breath_v1</string>
+    <string name="waiting">Waiting for watch init</string>
+    <string name="error_no_permission">no Bluetooth BLE permission</string>
+    <string name="error_no_device">Cannot find BLE device</string>
+    <string name="error_no_watch">Cannot find watch</string>
+    <string name="error_placeholder">-</string>
+    <string name="gatt_service_name">HEART_RATE_STRING_SERIAL</string>
+    <string name="gatt_service_running_notification">heartrate running</string>
+    <string name="adjust_lock">Lock</string>
+    <string name="adjust_unlock">Lock</string>
+    <string name="title_depth">Depth</string>
+    <string name="title_period">Period</string>
+    <string name="title_breath_time">Breath Time</string>
+    <string name="null_value_placeholder">-: null value :-</string>
+</resources>
