@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId "com.digitalnature.myopathy_breath_v1"
-        minSdk 30
+        minSdk 31
         targetSdk 34
         versionCode 1
         versionName "1.0"
@@ -38,9 +38,12 @@ android {
         freeCompilerArgs += "-Xopt-in=kotlin.RequiresOptIn"
         freeCompilerArgs += "-Xjvm-default=all"
     }
+    buildToolsVersion '34.0.0'
 }
 
 dependencies {
+    implementation 'androidx.work:work-runtime:2.9.0'
+    // fix for PendingIntent FLAG_IMMUTABLE, only use FLAG_MUTABLE
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'com.google.android.gms:play-services-wearable:18.1.0'
     implementation 'androidx.percentlayout:percentlayout:1.0.0'
@@ -48,7 +51,6 @@ dependencies {
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.wear:wear:1.3.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.fragment:fragment-ktx:1.6.2'
 
     // Hilt dependency injection
@@ -61,7 +63,7 @@ dependencies {
     // Wear
     implementation 'androidx.wear:wear:1.3.0'
     // Health Services
-    implementation 'androidx.health:health-services-client:1.0.0-rc01'
+    implementation 'androidx.health:health-services-client:1.0.0-rc02'
     // Used to bridge between Futures and coroutines
     implementation 'com.google.guava:guava:32.0.1-jre'
     implementation "androidx.concurrent:concurrent-futures-ktx:1.1.0"

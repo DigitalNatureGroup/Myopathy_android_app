@@ -34,9 +34,11 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
+    buildToolsVersion '34.0.0'
 }
 
 dependencies {
+    implementation 'androidx.work:work-runtime:2.7.0'
     implementation 'com.github.AAChartModel:AAChartCore-Kotlin:7.2.1'
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -44,10 +46,9 @@ dependencies {
     implementation 'com.google.android.gms:play-services-wearable:18.1.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.github.LeandroSQ:android-ble-made-easy:1.9.2'
-    implementation 'no.nordicsemi.android:ble:2.6.1'
-    implementation 'no.nordicsemi.android:ble-ktx:2.6.1'
-    implementation 'no.nordicsemi.android:ble-common:2.6.1'
-    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'no.nordicsemi.android:ble:2.7.4'
+    implementation 'no.nordicsemi.android:ble-ktx:2.7.4'
+    implementation 'no.nordicsemi.android:ble-common:2.7.4'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
