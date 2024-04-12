@@ -12,7 +12,6 @@
 
     <application
         android:name = ".MainApplication"
-        android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -34,7 +33,7 @@
         <activity
             android:name="com.digitalnature.myopathy_breath_v1.MainActivity"
             android:exported="true"
-            android:label="@string/app_name">
+            android:taskAffinity="Myopathy_V1">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
